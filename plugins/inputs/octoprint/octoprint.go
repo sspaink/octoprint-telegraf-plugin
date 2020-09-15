@@ -1,12 +1,9 @@
 package octoprint
 
 import (
-	"fmt"
-
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	octoapi "github.com/mcuadros/go-octoprint"
-	"github.com/prometheus/common/log"
 )
 
 // Octoprint - plugins main structure
@@ -16,10 +13,12 @@ type Octoprint struct {
 	client *octoapi.Client
 }
 
+// Description returns the plugin description
 func (o *Octoprint) Description() string {
 	return "A plugin to gather data from OctoPrint"
 }
 
+// SampleConfig returns sample configuration for this plugin
 func (o *Octoprint) SampleConfig() string {
 	return `
   ## Indicate if everything is fine
@@ -31,24 +30,25 @@ func (o *Octoprint) SampleConfig() string {
 `
 }
 
+// Init setup the octoprint client
 func (o *Octoprint) Init() error {
+	o.client = octoapi.NewClient(o.URL, o.APIKey)
 	return nil
 }
 
+// Gather OctoPrint metrics
 func (o *Octoprint) Gather(acc telegraf.Accumulator) error {
-	if o.client == nil {
-		o.client = octoapi.NewClient(o.URL, o.APIKey)
-	}
 
 	r := octoapi.ConnectionRequest{}
 	s, err := r.Do(o.client)
 	if err != nil {
-		log.Error("error requesting connection state: %s", err)
+		return err
 	}
 
-	fmt.Printf("Connection State: %q\n", s.Current.State)
-
-	acc.AddFields("state", map[string]interface{}{"value": s.Current.State}, nil)
+	acc.AddFields("state",
+		map[string]interface{}{"value": string(s.Current.State)},
+		map[string]string{"id": "State"},
+	)
 
 	return nil
 }
