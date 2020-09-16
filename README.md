@@ -18,8 +18,8 @@ To integrate with telegraf, extend the telegraf.conf using the following example
 
 ```toml
 [[inputs.execd]]
-  command = ["/path/to/octoprintbinary", "-config", "/path/to/plugin.conf"]
-  signal = "none"
+command = ["/path/to/octoprintbinary", "-config", "/path/to/plugin.conf"]
+signal = "none"
 ```
 
 ## Development
