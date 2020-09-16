@@ -1,5 +1,7 @@
 # OctoPrint Telegraf Plugin
 
+![octoprint](octoprint.png "icon")
+
 Gather useful information from the octoprint API
 
 ## Configuration
