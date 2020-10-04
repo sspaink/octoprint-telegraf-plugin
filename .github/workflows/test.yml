@@ -13,8 +13,5 @@ jobs:
       - name: Check out source code
         uses: actions/checkout@v1
  
-      - name: Build
-        run: go build .
-
       - name: Test
         run: go test -v ./...
