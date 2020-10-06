@@ -14,6 +14,21 @@ url="http://xxx.xxx.x.xxx:xxx/"
 apikey=""
 ```
 
+If you have the [Filament Manager Plugin](https://plugins.octoprint.org/plugins/filamentmanager/) then you can configure the plugin to use the external filament manager database,
+[Follow this guide for setup on raspberry pi](https://github.com/malnvenshorn/OctoPrint-FilamentManager/wiki/Setup-PostgreSQL-on-Raspbian-(Stretch)).
+
+Example of an updated plugin.conf to support the postgres database
+
+```toml
+[[inputs.octoprint]]
+url="http://xxx.xxx.x.xxx:xxx/"
+apikey=""
+dbnamepsql="octoprint_filamentmanager"
+userpsql="octoprint"
+passpsql="xxxx"
+ip="xxx.xxx.x.xxx"
+```
+
 To integrate with telegraf, extend the telegraf.conf using the following example
 
 ```toml
