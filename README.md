@@ -36,6 +36,7 @@ journalctl -l -u telegraf.service -b -n 10
 
 * [External plugin overview](https://github.com/influxdata/telegraf/blob/master/plugins/common/shim/README.md)
 * [Examples of other external plugins](https://github.com/influxdata/telegraf/blob/master/EXTERNAL_PLUGINS.md)
+* [Example setting up external Postgres DB For filament manager on Raspberry PI](https://github.com/malnvenshorn/OctoPrint-FilamentManager/wiki/Setup-PostgreSQL-on-Raspbian-(Stretch))
 
 ## Example Dashboard
 
