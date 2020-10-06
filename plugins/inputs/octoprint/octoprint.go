@@ -1,15 +1,26 @@
 package octoprint
 
 import (
+	"database/sql"
+	"fmt"
+	"log"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
+
+	_ "github.com/lib/pq"
 )
 
 // Octoprint - plugins main structure
 type Octoprint struct {
-	URL    string `toml:"url"`
-	APIKey string `toml:"apikey"`
-	API    OctoAPI
+	URL        string `toml:"url"`
+	APIKey     string `toml:"apikey"`
+	DBNamePSQL string `toml:"dbnamepsql"`
+	UserPSQL   string `toml:"userpsql"`
+	PassPSQL   string `toml:"passpsql"`
+	IP         string `tom:"ip"`
+	API        OctoAPI
+	DB         *sql.DB
 }
 
 // Description returns the plugin description
@@ -26,12 +37,38 @@ func (o *Octoprint) SampleConfig() string {
   # url=""
   ## OctoPrint's API Key
   # apikey=""
+  ## OPTIONAL IF Filamanet Manager PSQL IS SET
+  ## PSQL Database name
+  # dbnamepsql=""
+  ## Username that has access to the database
+  # userpsql=""
+  ## Password for the user
+  # passpsql=""
+  ## IP that is hosting the database
+  # ip=""
 `
+}
+
+func (o *Octoprint) verifyPSQLSettings() bool {
+	if o.DBNamePSQL != "" && o.UserPSQL != "" && o.PassPSQL != "" && o.IP != "" {
+		return true
+	}
+	return false
 }
 
 // Init setup the octoprint client
 func (o *Octoprint) Init() error {
 	o.API = NewGoOcto(o.URL, o.APIKey)
+	// If PSQL is set in the settings, create a connection
+	if o.verifyPSQLSettings() {
+		URI := fmt.Sprintf("postgres://%s:%s@%s/%s", o.UserPSQL, o.PassPSQL, o.IP, o.DBNamePSQL)
+		DB, err := sql.Open("postgres", URI)
+		if err != nil {
+			log.Fatal("Failed to open a DB connection: ", err)
+		}
+		o.DB = DB
+	}
+
 	return nil
 }
 
@@ -98,6 +135,26 @@ func (o *Octoprint) Gather(acc telegraf.Accumulator) error {
 				"name": t.Name,
 			},
 		)
+	}
+
+	// If there is a postgress connection
+	if o.DB != nil {
+		rows, _ := o.DB.Query("SELECT vendor, material FROM profiles;")
+
+		for rows.Next() {
+			var vendor string
+			var material string
+			rows.Scan(&vendor, &material)
+			acc.AddFields("filament",
+				map[string]interface{}{
+					"vendor":   vendor,
+					"material": material,
+				},
+				map[string]string{
+					"id": "FilamentManagerProfiles",
+				},
+			)
+		}
 	}
 
 	return nil
