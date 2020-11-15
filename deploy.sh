@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "Building the plugin..."
-env GOOS=linux GOARCH=arm GOARM=5 go build -o bin/octoprint cmd/main.go
+make build
 echo "Deploying the plugin..."
-ssh pi "rm ~/plugins/octoprint"
-scp bin/octoprint pi:~/plugins/octoprint
-ssh pi "chmod +x ~/plugins/octoprint"
+make deploy
+echo "Reloading telegraf to start latest plugin..."
+make reload
