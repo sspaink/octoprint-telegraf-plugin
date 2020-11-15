@@ -21,8 +21,8 @@ func (o *Octoprint) GatherFilamentManagerData(acc telegraf.Accumulator) {
 type SelectedSpool struct {
 	ID       string
 	Name     string
-	Weight   int
-	Used     int
+	Weight   float64
+	Used     float64
 	Vendor   string
 	Material string
 }
