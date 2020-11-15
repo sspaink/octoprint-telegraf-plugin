@@ -49,8 +49,8 @@ func (o *Octoprint) SelectedSpool() (SelectedSpool, error) {
 func (o *Octoprint) UploadSpoolData(spool SelectedSpool, acc telegraf.Accumulator) {
 	acc.AddFields("filament",
 		map[string]interface{}{
-			"name": fmt.Sprintf("Material: %s Color: %s", spool.Material, spool.Name),
-			"used": spool.Used,
+			"name":      fmt.Sprintf("Material: %s Color: %s", spool.Material, spool.Name),
+			"remaining": spool.Weight - spool.Used,
 		},
 		map[string]string{
 			"id": fmt.Sprintf("%s_%s", spool.ID, spool.Name),
