@@ -1,14 +1,13 @@
 package octoprint
 
 import (
-	"database/sql"
 	"fmt"
-	"log"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
+	"github.com/jmoiron/sqlx"
 
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // I assume we don't want this in the main.go shim
 )
 
 // Octoprint - plugins main structure
@@ -20,7 +19,8 @@ type Octoprint struct {
 	PassPSQL   string `toml:"passpsql"`
 	IP         string `tom:"ip"`
 	API        OctoAPI
-	DB         *sql.DB
+	DB         *sqlx.DB
+	Log        telegraf.Logger
 }
 
 // Description returns the plugin description
@@ -62,14 +62,57 @@ func (o *Octoprint) Init() error {
 	// If PSQL is set in the settings, create a connection
 	if o.verifyPSQLSettings() {
 		URI := fmt.Sprintf("postgres://%s:%s@%s/%s", o.UserPSQL, o.PassPSQL, o.IP, o.DBNamePSQL)
-		DB, err := sql.Open("postgres", URI)
+		DB, err := sqlx.Open("postgres", URI)
 		if err != nil {
-			log.Fatal("Failed to open a DB connection: ", err)
+			o.Log.Errorf("Failed to open the DB connection: %v", err)
+			return err
 		}
 		o.DB = DB
 	}
 
 	return nil
+}
+
+// Gather OctoPrint metrics
+func (o *Octoprint) Gather(acc telegraf.Accumulator) error {
+
+	state, err := o.State()
+	if err == nil {
+		o.UploadState(state, acc)
+	}
+
+	tools, err := o.ToolInfo()
+	if err == nil {
+		o.UploadToolInfo(tools, acc)
+	}
+
+	if o.DB != nil {
+		o.GatherFilamentManagerData(acc)
+	}
+
+	return nil
+}
+
+// State returns the current state of the 3d printer (e.g. printing, operational, closed)
+func (o *Octoprint) State() (string, error) {
+	c, err := o.API.ConnectionRequest()
+	if err != nil {
+		o.Log.Errorf("Failed to get state information: %v", err)
+		return "", err
+	}
+	return string(c.Current.State), nil
+}
+
+// UploadState will upload the state information to InfluxDB
+func (o *Octoprint) UploadState(state string, acc telegraf.Accumulator) {
+	acc.AddFields("state",
+		map[string]interface{}{
+			"value": state,
+		},
+		map[string]string{
+			"id": "State",
+		},
+	)
 }
 
 // Tool defines a tool on the 3d printer (e.g. hotend)
@@ -81,12 +124,13 @@ type Tool struct {
 
 // ToolInfo returns a list of tools on the connected 3d printer
 func (o *Octoprint) ToolInfo() ([]Tool, error) {
+	var tools []Tool
 	s, err := o.API.StateRequest()
 	if err != nil {
-		return []Tool{}, err
+		o.Log.Errorf("Failed to make a state request to Octoprint: %v", err)
+		return tools, err
 	}
 
-	var tools []Tool
 	for toolName, state := range s.Temperature.Current {
 		var t Tool
 		t.Name = toolName
@@ -98,32 +142,8 @@ func (o *Octoprint) ToolInfo() ([]Tool, error) {
 	return tools, nil
 }
 
-// State returns the current state of the 3d printer (e.g. printing)
-func (o *Octoprint) State() (string, error) {
-	c, err := o.API.ConnectionRequest()
-	if err != nil {
-		return "", err
-	}
-
-	return string(c.Current.State), nil
-}
-
-// Gather OctoPrint metrics
-func (o *Octoprint) Gather(acc telegraf.Accumulator) error {
-
-	state, _ := o.State()
-
-	acc.AddFields("state",
-		map[string]interface{}{
-			"value": state,
-		},
-		map[string]string{
-			"id": "State",
-		},
-	)
-
-	tools, _ := o.ToolInfo()
-
+// UploadToolInfo will upload tool information to InfluxDB
+func (o *Octoprint) UploadToolInfo(tools []Tool, acc telegraf.Accumulator) {
 	for _, t := range tools {
 		acc.AddFields("tool",
 			map[string]interface{}{
@@ -136,28 +156,6 @@ func (o *Octoprint) Gather(acc telegraf.Accumulator) error {
 			},
 		)
 	}
-
-	// If there is a postgress connection
-	if o.DB != nil {
-		rows, _ := o.DB.Query("SELECT vendor, material FROM profiles;")
-
-		for rows.Next() {
-			var vendor string
-			var material string
-			rows.Scan(&vendor, &material)
-			acc.AddFields("filament",
-				map[string]interface{}{
-					"vendor":   vendor,
-					"material": material,
-				},
-				map[string]string{
-					"id": "FilamentManagerProfiles",
-				},
-			)
-		}
-	}
-
-	return nil
 }
 
 func init() {

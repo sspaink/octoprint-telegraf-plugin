@@ -1,5 +1,7 @@
 # OctoPrint Telegraf Plugin
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/BattleBas/octoprint-telegraf-plugin)](https://goreportcard.com/report/github.com/BattleBas/octoprint-telegraf-plugin)
+
 ![octoprint](octoprint.png "icon")
 
 Gather useful information from the octoprint API
