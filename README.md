@@ -44,7 +44,7 @@ Refer to [deploy.sh](deploy.sh) for a building and deploying example
 Useful for debugging
 
 ```bash
-journalctl -l -u telegraf.service -b -n 10
+journalctl -u telegraf -n 10
 ```
 
 ## Helpful resources
