@@ -1,7 +1,11 @@
 package octoprint
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -75,6 +79,11 @@ func (o *Octoprint) Init() error {
 
 // Gather OctoPrint metrics
 func (o *Octoprint) Gather(acc telegraf.Accumulator) error {
+
+	l, err := o.GetLayerProgress()
+	if err == nil {
+		o.UploadLayerProgress(l, acc)
+	}
 
 	state, err := o.State()
 	if err == nil {
@@ -160,4 +169,76 @@ func (o *Octoprint) UploadToolInfo(tools []Tool, acc telegraf.Accumulator) {
 
 func init() {
 	inputs.Add("octoprint", func() telegraf.Input { return &Octoprint{} })
+}
+
+type LayerProgress struct {
+	Layer LayerData `json:"layer"`
+}
+
+type LayerData struct {
+	Current string `json:"current"`
+	Total   string `json:"total"`
+}
+
+func (o *Octoprint) GetLayerProgress() (LayerProgress, error) {
+	URL := o.URL + "/plugin/DisplayLayerProgress/values"
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", URL, nil)
+	if err != nil {
+		o.Log.Errorf("Failed creating new request for layer progress: %v", err)
+		return LayerProgress{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+o.APIKey)
+	res, err := client.Do(req)
+	if err != nil {
+		o.Log.Errorf("Failed to execute request for layer progress: %v", err)
+		return LayerProgress{}, err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		o.Log.Errorf("Failed to read response body for layer progress: %v", err)
+		return LayerProgress{}, err
+	}
+	var l LayerProgress
+	err = json.Unmarshal(body, &l)
+	if err != nil {
+		o.Log.Errorf("Failed to unmarshall layer progress response: %v", err)
+		return LayerProgress{}, err
+	}
+	return l, nil
+}
+
+func (o *Octoprint) UploadLayerProgress(l LayerProgress, acc telegraf.Accumulator) {
+	var current, total int
+
+	if l.Layer.Current == "-" {
+		current = 0
+	} else {
+		var err error
+		current, err = strconv.Atoi(l.Layer.Current)
+		if err != nil {
+			o.Log.Errorf("Failed to convert current layer to int: %v", err)
+			return
+		}
+	}
+
+	if l.Layer.Total == "-" {
+		total = 0
+	} else {
+		var err error
+		total, err = strconv.Atoi(l.Layer.Total)
+		if err != nil {
+			o.Log.Errorf("Failed to convert total layer to int: %v", err)
+		}
+	}
+
+	acc.AddFields("layer progress",
+		map[string]interface{}{
+			"current_layer": current,
+			"total_layer":   total,
+		},
+		map[string]string{
+			"layers": "active layers",
+		},
+	)
 }

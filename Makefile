@@ -1,5 +1,5 @@
 build:
-	env GOOS=linux GOARCH=arm GOARM=5 go build -o bin/octoprint cmd/main.go
+	env GOOS=linux GOARCH=arm GOARM=7 go build -o bin/octoprint cmd/main.go
 
 deploy:
 	ssh pi "rm ~/plugins/octoprint"
